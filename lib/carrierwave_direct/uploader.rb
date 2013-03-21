@@ -29,9 +29,11 @@ module CarrierWaveDirect
       end
       fog_uri
     end
-
+  
+    # Make it more secure and give it a better look'n'feel.
     def guid
-      UUID.generate
+      o =  [('a'..'z'),(0..9)].map{|i| i.to_a}.flatten
+      (0...10).map{ o[rand(o.length)] }.join
     end
 
     def key=(k)
