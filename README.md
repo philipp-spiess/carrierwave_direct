@@ -68,7 +68,10 @@ Remove the line `storage :file` and replace it with `include CarrierWaveDirect::
 
 This adds the extra functionality for direct uploading.
 
-Finally, remove the `store_dir` method in order to default CarrierWaveDirect to its own storage directory.
+**Optional**: Remove the `store_dir` method in order to default CarrierWaveDirect to its own storage directory.
+
+    /uploads/<unique_guid>/foo.png
+
 
 If you're *not* using Rails you can generate a direct upload form to S3 similar to [this example](http://doc.s3.amazonaws.com/proposals/post.html#A_Sample_Form)) by making use of the CarrierWaveDirect helper methods.
 
@@ -134,6 +137,10 @@ things just got a whole lot easier. You can generate a direct upload form like t
       <%= f.submit %>
     <% end %>
 
+After uploading to S3, You'll need to update the uploader object with the returned key in the controller action that corresponds to `new_user_url`:
+
+    @uploader.update_attribute :key, params[:key]
+
 You can also pass html options like this:
 
     <%= direct_upload_form_for @uploader, :html => { :target => "_blank_iframe" } do |f| %>
@@ -162,6 +169,37 @@ Note if you're using Rails 3.0.x you'll also need to disable forgery protection
     config.action_controller.allow_forgery_protection = false
 
 Once you've uploaded your file directly to the cloud you'll probably need a way to reference it with an ORM and process it.
+
+## Content-Type / Mime
+
+The default amazon content-type is "binary/octet-stream" and for many cases this will work just fine.  But if you are trying to stream video or audio you will need to set the mime type manually as Amazon will not calculate it for you.  All mime types are supported: [http://en.wikipedia.org/wiki/Internet_media_type](http://en.wikipedia.org/wiki/Internet_media_type).
+
+First, tell CarrierWaveDirect that you will include your content type manually by adding to your initializer:
+
+    CarrierWave.configure do |config|
+      # ... fog configuration and other options ...
+      config.will_include_content_type = true
+    end
+
+Then, just add a content-type element to the form.
+
+    <%= direct_upload_form_for @uploader do |f| %>
+      <%= text_field_tag 'Content-Type', 'video/mpeg' %><br>
+      <%= f.file_field :avatar %>
+      <%= f.submit %>
+    <% end %>
+
+You could use a select as well.
+
+    <%= direct_upload_form_for @uploader do |f| %>
+      <%= select_tag 'Content-Type', options_for_select([
+        ['Video','video/mpeg'],
+        ['Audio','audio/mpeg'],
+        ['Image','image/jpeg']
+      ], 'video/mpeg') %><br>
+      <%= f.file_field :avatar %>
+      <%= f.submit %>
+    <% end %>
 
 ## Processing and referencing files in a background process
 
@@ -294,6 +332,9 @@ As well as the built in validations CarrierWaveDirect provides, some validations
       config.min_file_size     = 5.kilobytes         # defaults to 1.byte
       config.max_file_size     = 10.megabytes        # defaults to 5.megabytes
       config.upload_expiration = 1.hour              # defaults to 10.hours
+      config.will_include_content_type = true        # defaults to false; if true, content-type will be set
+                                                     # on s3, but you must include an input field named
+                                                     # Content-Type on every direct upload form
     end
 
 ## Testing with CarrierWaveDirect
@@ -388,7 +429,7 @@ If you're Rails app was newly generated *after* version 3.2.3 and your testing t
 
 ## Contributing to CarrierWaveDirect
 
-Pull requests are very welcome. Before submitting a pull request, please make sure that your changes are well tested.
+Pull requests are very welcome. Before submitting a pull request, please make sure that your changes are well tested. Pull requests without tests *will not* be accepted.
 
     gem install bundler
     bundle install
@@ -396,6 +437,10 @@ Pull requests are very welcome. Before submitting a pull request, please make su
 You should now be able to run the tests
 
     bundle exec rake
+
+### Using the Sample Application
+
+After you have fixed a bug or added a feature please also use the [CarrierWaveDirect Sample Application](https://github.com/dwilkie/carrierwave_direct_example) to ensure that the gem still works correctly.
 
 ## Contributors
 
@@ -415,3 +460,5 @@ You should now be able to run the tests
 * [kylecrum (Kyle Crum)](https://github.com/kylecrum) - Fix double url encoding bug
 * [rsniezynski](https://github.com/rsniezynski) - Add min file size configuration
 * [philipp-spiess (Philipp Spieß)](https://github.com/philipp-spiess) - Direct fog url bugfix
+* [colinyoung (Colin Young)](https://github.com/colinyoung) - Content-Type support
+* [filiptepper (Filip Tepper)](https://github.com/filiptepper) - Autoload UUID on heroku
